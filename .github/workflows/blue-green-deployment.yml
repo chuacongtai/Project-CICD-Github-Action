@@ -70,7 +70,7 @@ jobs:
     needs: switch-traffic
     uses: ./.github/workflows/clear-resources.yml
     with:
-      cluster_name: ${{ inputs.target_cluster == 'blue' && 'cluster-green' || 'cluster-blue' }}
+      cluster_name: ${{ inputs.target_cluster == 'blue' && 'Cluster-green' || 'Cluster-blue' }}
     secrets: inherit
 
   deployment-summary:
