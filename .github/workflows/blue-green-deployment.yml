@@ -41,7 +41,7 @@ jobs:
     uses: ./.github/workflows/deploy-ecs.yml
     with:
       version: ${{ inputs.version }}
-      cluster_name: ${{ inputs.target_cluster == 'blue' && 'cluster-blue' || 'cluster-green' }}
+      cluster_name: ${{ inputs.target_cluster == 'blue' && 'Cluster-blue' || 'Cluster-green' }}
     secrets: inherit
 
   manual-approval:
