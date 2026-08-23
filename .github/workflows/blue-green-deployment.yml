@@ -26,8 +26,8 @@ on:
         default: false
 
 env:
-  BLUE_CLUSTER: cluster-blue
-  GREEN_CLUSTER: cluster-green
+  BLUE_CLUSTER: Cluster-blue
+  GREEN_CLUSTER: Cluster-green
 
 jobs:
   build-and-push:
