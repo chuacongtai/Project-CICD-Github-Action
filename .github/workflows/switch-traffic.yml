@@ -7,6 +7,10 @@ on:
 env:
   AWS_REGION: ap-southeast-1
   ALB_ARN: arn:aws:elasticloadbalancing:ap-southeast-1:572498579257:loadbalancer/app/alb-cicd-github-actions/31bbca10a0e9ab04
+  
+  # Defauft port
+  PROD_PORT: 80
+  TEST_PORT: 81
 
 jobs:
   switch-traffic:
@@ -21,65 +25,81 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
         mask-aws-account-id: false
         
-    - name: Switch traffic between blue and green environments
+    - name: Switch traffic between Blue and Green (by Port)
       run: |
-        echo "🔍 Getting ALB listener information..."
-        
-        # Get all listeners for the load balancer
+        set -euo pipefail
+
+        echo "Get infomation of ALB..."
         LISTENERS=$(aws elbv2 describe-listeners --load-balancer-arn ${{ env.ALB_ARN }})
+
+        # Find Listener of Port
+        PROD_LISTENER_ARN=$(echo "$LISTENERS" | jq -r --arg port "${{ env.PROD_PORT }}" '
+          .Listeners[] | select(.Port == ($port | tonumber)) | .ListenerArn // empty')
         
-        echo "Raw listeners response:"
-        echo "$LISTENERS" | jq '.'
+        TEST_LISTENER_ARN=$(echo "$LISTENERS" | jq -r --arg port "${{ env.TEST_PORT }}" '
+          .Listeners[] | select(.Port == ($port | tonumber)) | .ListenerArn // empty')
+
+        # Get Target Group current for each listener
+        PROD_TG=$(echo "$LISTENERS" | jq -r --arg port "${{ env.PROD_PORT }}" '
+          .Listeners[] | select(.Port == ($port | tonumber)) | .DefaultActions[0].TargetGroupArn // empty')
         
-        # Extract listener ARNs and their target groups
-        LISTENER_1_ARN=$(echo "$LISTENERS" | jq -r '.Listeners[0].ListenerArn // empty')
-        LISTENER_1_TG=$(echo "$LISTENERS" | jq -r '.Listeners[0].DefaultActions[0].TargetGroupArn // empty')
-        
-        LISTENER_2_ARN=$(echo "$LISTENERS" | jq -r '.Listeners[1].ListenerArn // empty')
-        LISTENER_2_TG=$(echo "$LISTENERS" | jq -r '.Listeners[1].DefaultActions[0].TargetGroupArn // empty')
-        
-        # Validate that we have the required values
-        if [ -z "$LISTENER_1_ARN" ] || [ -z "$LISTENER_2_ARN" ] || [ -z "$LISTENER_1_TG" ] || [ -z "$LISTENER_2_TG" ]; then
-          echo "❌ Error: Could not extract listener information"
-          echo "Listener 1 ARN: '$LISTENER_1_ARN'"
-          echo "Listener 1 TG: '$LISTENER_1_TG'"
-          echo "Listener 2 ARN: '$LISTENER_2_ARN'"
-          echo "Listener 2 TG: '$LISTENER_2_TG'"
+        TEST_TG=$(echo "$LISTENERS" | jq -r --arg port "${{ env.TEST_PORT }}" '
+          .Listeners[] | select(.Port == ($port | tonumber)) | .DefaultActions[0].TargetGroupArn // empty')
+
+        # Kiểm tra bắt buộc
+        if [ -z "$PROD_LISTENER_ARN" ] || [ -z "$TEST_LISTENER_ARN" ]; then
+          echo "Don't have Listener port ${{ env.PROD_PORT }} or port ${{ env.TEST_PORT }}"
+          echo "Current listeners:"
+          echo "$LISTENERS" | jq -r '.Listeners[] | "Port: \(.Port) | ARN: \(.ListenerArn)"'
           exit 1
         fi
-        
-        echo "📋 Current Configuration:"
-        echo "Listener 1 ARN: $LISTENER_1_ARN"
-        echo "Listener 1 Target Group: $LISTENER_1_TG"
-        echo "Listener 2 ARN: $LISTENER_2_ARN"
-        echo "Listener 2 Target Group: $LISTENER_2_TG"
-        
+
+        if [ -z "$PROD_TG" ] || [ -z "$TEST_TG" ]; then
+          echo "Don't get Target Group current"
+          exit 1
+        fi
+
+        echo "Current state:"
+        echo "  Production (port ${{ env.PROD_PORT }}): $PROD_TG"
+        echo "  Test       (port ${{ env.TEST_PORT }}): $TEST_TG"
         echo ""
-        echo "🔄 Switching traffic..."
-        echo "- Listener 1 will point to: $LISTENER_2_TG"
-        echo "- Listener 2 will point to: $LISTENER_1_TG"
-        
-        # Switch traffic by swapping target groups
-        echo "Updating Listener 1..."
+
+        # === SWITCH ===
+        echo "Switching traffic..."
+        echo "  → Port ${{ env.PROD_PORT }} will point to: $TEST_TG"
+        echo "  → Port ${{ env.TEST_PORT }} ưill point to: $PROD_TG"
+
+        # Update Production listener (port 80) → point to Target Group in Test production
         aws elbv2 modify-listener \
-          --listener-arn "$LISTENER_1_ARN" \
-          --default-actions Type=forward,TargetGroupArn="$LISTENER_2_TG"
-        
-        echo "Updating Listener 2..."
+          --listener-arn "$PROD_LISTENER_ARN" \
+          --default-actions Type=forward,TargetGroupArn="$TEST_TG"
+
+        # Update Test listener (port 81) → point to old Target Group of Production
         aws elbv2 modify-listener \
-          --listener-arn "$LISTENER_2_ARN" \
-          --default-actions Type=forward,TargetGroupArn="$LISTENER_1_TG"
-        
+          --listener-arn "$TEST_LISTENER_ARN" \
+          --default-actions Type=forward,TargetGroupArn="$PROD_TG"
+
         echo ""
-        echo "✅ Traffic switch completed successfully!"
+        echo "Successfully switch traffic!"
+
+        # Verify 
+        echo "Cheking after switch traffic..."
+        UPDATED=$(aws elbv2 describe-listeners --load-balancer-arn ${{ env.ALB_ARN }})
+
+        NEW_PROD_TG=$(echo "$UPDATED" | jq -r --arg port "${{ env.PROD_PORT }}" '
+          .Listeners[] | select(.Port == ($port | tonumber)) | .DefaultActions[0].TargetGroupArn')
         
-        # Verify the changes
-        echo "🔍 Verifying traffic switch..."
-        UPDATED_LISTENERS=$(aws elbv2 describe-listeners --load-balancer-arn ${{ env.ALB_ARN }})
-        
-        NEW_LISTENER_1_TG=$(echo "$UPDATED_LISTENERS" | jq -r '.Listeners[0].DefaultActions[0].TargetGroupArn')
-        NEW_LISTENER_2_TG=$(echo "$UPDATED_LISTENERS" | jq -r '.Listeners[1].DefaultActions[0].TargetGroupArn')
-        
-        echo "📋 New Configuration:"
-        echo "Listener 1 now points to: $NEW_LISTENER_1_TG"
-        echo "Listener 2 now points to: $NEW_LISTENER_2_TG"
+        NEW_TEST_TG=$(echo "$UPDATED" | jq -r --arg port "${{ env.TEST_PORT }}" '
+          .Listeners[] | select(.Port == ($port | tonumber)) | .DefaultActions[0].TargetGroupArn')
+
+        echo "New state:"
+        echo "  Production (port ${{ env.PROD_PORT }}): $NEW_PROD_TG"
+        echo "  Test       (port ${{ env.TEST_PORT }}): $NEW_TEST_TG"
+
+        # Safety check
+        if [ "$NEW_PROD_TG" != "$TEST_TG" ] || [ "$NEW_TEST_TG" != "$PROD_TG" ]; then
+          echo "Verify failed! Target Group after switch false."
+          exit 1
+        fi
+
+        echo "Successfully verify. Traffic have been tranfer."

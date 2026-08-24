@@ -1,4 +1,4 @@
-name: Complete Blue-Green Deployment
+name: CICD Blue-Green
 
 on:
   workflow_dispatch:
@@ -52,7 +52,7 @@ jobs:
     steps:
     - name: Manual Approval Required
       run: |
-        echo "## 🚀 Ready to Switch Traffic" >> $GITHUB_STEP_SUMMARY
+        echo "## Ready to Switch Traffic" >> $GITHUB_STEP_SUMMARY
         echo "Deployment to ${{ inputs.target_cluster }} cluster completed successfully." >> $GITHUB_STEP_SUMMARY
         echo "**Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
         echo "**Target Cluster:** ${{ inputs.target_cluster }}" >> $GITHUB_STEP_SUMMARY
@@ -81,7 +81,7 @@ jobs:
     - name: Deployment Summary
       run: |
         echo "## Blue-Green Deployment Summary" >> $GITHUB_STEP_SUMMARY
-        echo "- **Version:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version code is deployed:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Target Cluster:** ${{ inputs.target_cluster }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Traffic Switched:** ${{ inputs.switch_traffic }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Old Cluster Cleaned:** ${{ inputs.cleanup_old_cluster }}" >> $GITHUB_STEP_SUMMARY
