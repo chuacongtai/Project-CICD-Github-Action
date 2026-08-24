@@ -6,7 +6,7 @@ on:
 
 env:
   AWS_REGION: ap-southeast-1
-  ALB_ARN: arn:aws:elasticloadbalancing:ap-southeast-1:572498579257:loadbalancer/app/alb-cicd-github-actions/bf471d390f878a4a
+  ALB_ARN: arn:aws:elasticloadbalancing:ap-southeast-1:572498579257:loadbalancer/app/alb-cicd-github-actions/31bbca10a0e9ab04
 
 jobs:
   switch-traffic:
