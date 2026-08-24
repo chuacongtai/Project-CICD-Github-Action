@@ -26,8 +26,8 @@ on:
         default: false
 
 env:
-  BLUE_CLUSTER: Cluster-blue
-  GREEN_CLUSTER: Cluster-green
+  BLUE_CLUSTER: cluster-blue
+  GREEN_CLUSTER: cluster-green
 
 jobs:
   build-and-push:
@@ -41,7 +41,7 @@ jobs:
     uses: ./.github/workflows/deploy-ecs.yml
     with:
       version: ${{ inputs.version }}
-      cluster_name: ${{ inputs.target_cluster == 'blue' && 'Cluster-blue' || 'Cluster-green' }}
+      cluster_name: ${{ inputs.target_cluster == 'blue' && 'cluster-blue' || 'cluster-green' }}
     secrets: inherit
 
   manual-approval:
@@ -70,7 +70,7 @@ jobs:
     needs: switch-traffic
     uses: ./.github/workflows/clear-resources.yml
     with:
-      cluster_name: ${{ inputs.target_cluster == 'blue' && 'Cluster-green' || 'Cluster-blue' }}
+      cluster_name: ${{ inputs.target_cluster == 'blue' && 'cluster-green' || 'cluster-blue' }}
     secrets: inherit
 
   deployment-summary:
