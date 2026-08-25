@@ -7,3 +7,8 @@ dist
 build
 .env
 .env.local
+# Terraform
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
