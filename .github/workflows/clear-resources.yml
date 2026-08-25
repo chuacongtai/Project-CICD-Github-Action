@@ -15,8 +15,8 @@ on:
         type: string
 
 env:
-  AWS_REGION: ap-southeast-1
-  SERVICE_NAME: nodejs-service
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  SERVICE_NAME: ${{ vars.SERVICE_NAME }}
 
 jobs:
   clear-resources:

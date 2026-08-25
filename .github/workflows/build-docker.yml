@@ -20,10 +20,11 @@ on:
         required: true
         type: string
 
+
 env:
-  AWS_REGION: ap-southeast-1
-  ECR_REGISTRY: 572498579257.dkr.ecr.ap-southeast-1.amazonaws.com
-  ECR_REPOSITORY: ecs-project-cicd-github-actions
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REGISTRY: ${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION }}.amazonaws.com
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
 
 jobs:
   build-and-push:

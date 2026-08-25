@@ -5,12 +5,10 @@ on:
   workflow_call: {}
 
 env:
-  AWS_REGION: ap-southeast-1
-  ALB_ARN: arn:aws:elasticloadbalancing:ap-southeast-1:572498579257:loadbalancer/app/alb-cicd-github-actions/31bbca10a0e9ab04
-  
-  # Defauft port
-  PROD_PORT: 80
-  TEST_PORT: 81
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ALB_ARN: ${{ vars.ALB_ARN }}
+  PROD_PORT: ${{ vars.PROD_PORT }}
+  TEST_PORT: ${{ vars.TEST_PORT }}
 
 jobs:
   switch-traffic:
