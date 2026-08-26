@@ -72,6 +72,8 @@ The system deploys a simple Node.js application using the Blue-Green strategy:
 │   ├── switch-traffic.yml          # Switch ALB traffic
 │   ├── clear-resources.yml         # Scale down old environment
 │   └── test-on-develop.yml         # Basic tests on develop branch
+├── architecture/                   # Architecture diagrams
+├── legacy/                         # Old files (Jenkins, appspec...)
 ├── terraform/
 │   ├── modules/
 │   │   ├── networking/             # VPC, Subnets, Route Tables
