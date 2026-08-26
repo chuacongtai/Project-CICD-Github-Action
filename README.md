@@ -1,147 +1,176 @@
-# GitHub Environments Setup for Manual Approvals
+# Blue-Green Deployment on AWS ECS with GitHub Actions & Terraform
 
-To enable manual approval steps in your GitHub Actions workflows, you need to set up **Environments** with protection rules.
+A hands-on DevOps project that implements **Blue-Green Deployment** on AWS ECS Fargate.  
+Infrastructure is fully managed by **Terraform**, and the entire CI/CD pipeline is automated using **GitHub Actions** with manual approval gates.
 
-## Step 1: Create Environments
+This project is built as a portfolio piece to demonstrate practical knowledge of modern cloud-native deployment practices.
 
-1. Go to your GitHub repository
-2. Click on **Settings** tab
-3. In the left sidebar, click **Environments**
-4. Click **New environment**
+---
 
-Create these environments:
+## Project Overview
 
-### Environment 1: `production-approval`
-- **Name:** `production-approval`
-- **Description:** Basic production deployment approval
+The system deploys a simple Node.js application using the Blue-Green strategy:
 
-### Environment 2: `traffic-switch-approval`  
-- **Name:** `traffic-switch-approval`
-- **Description:** Approval required before switching traffic between blue/green environments
+- Two identical environments: **Blue** and **Green**
+- Traffic is switched between environments via Application Load Balancer (ALB)
+- New versions are always deployed to the idle environment first
+- Manual approval is required before switching production traffic
+- Old environment is cleaned up after a successful switch
 
-### Environment 3: `cleanup-approval`
-- **Name:** `cleanup-approval`  
-- **Description:** Approval required before cleaning up old cluster resources
+---
 
-## Step 2: Configure Protection Rules
+## Architecture Diagrams
 
-For each environment, add these protection rules:
+### 1. Network Architecture
+![Network Architecture](./architecture/Network%20Architecture%20Diagram.png)
 
-### Required Reviewers
-1. Click on the environment name
-2. Check **Required reviewers**
-3. Add team members or teams who can approve deployments
-4. Set **Number of required reviewers** (recommended: 1-2)
+### 2. Security Architecture
+![Security Architecture](./architecture/Security%20Architecture%20Diagram.png)
 
-### Wait Timer (Optional)
-- Set a wait timer if you want a minimum delay before approval
-- Example: 5 minutes for basic checks
+### 3. Application / Services Architecture
+![Application Services Architecture](./architecture/Services%20and%20Resources%20Diagram.png)
 
-### Allowed Branches (Recommended)
-- Restrict which branches can deploy to this environment
-- Example: Only `main` branch for production environments
+### 4. CI/CD Architecture
+![CI/CD Architecture](./architecture/CICD%20Pipeline%20Architecture.png)
 
-## Step 3: Environment-Specific Secrets (Optional)
+---
 
-If you need different AWS credentials for different environments:
+## Key Features
 
-1. In each environment settings
-2. Add environment-specific secrets:
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
+- **Blue-Green Deployment** with zero-downtime traffic switching
+- **Infrastructure as Code** using Terraform (modular structure)
+- **CI/CD Pipeline** with GitHub Actions (Build → Push to ECR → Deploy → Switch Traffic → Cleanup)
+- **Manual Approval** using GitHub Environments
+- Alternating deployment between Blue and Green environments
+- Least-privilege Security Groups and private subnets for ECS tasks
 
-## Step 4: Test the Approval Process
+---
 
-1. Run the workflow with manual approval
-2. The workflow will pause at approval steps
-3. Approvers will receive notifications
-4. Go to **Actions** → **Running workflow** → **Review deployments**
-5. Click **Approve and deploy** or **Reject**
+## Tech Stack
 
-## Approval Workflow Behavior
+| Category                  | Technology                        |
+|---------------------------|-----------------------------------|
+| Cloud Provider            | AWS                               |
+| Compute                   | Amazon ECS (Fargate)              |
+| Container Registry        | Amazon ECR                        |
+| Load Balancer             | Application Load Balancer (ALB)   |
+| Infrastructure as Code    | Terraform                         |
+| CI/CD                     | GitHub Actions                    |
+| Application               | Node.js + Express                 |
+| Region                    | ap-southeast-1 (Singapore)        |
 
-### Traffic Switch Approval Flow:
+---
+
+## Project Structure
+
+```text
+.
+├── .github/workflows/
+│   ├── blue-green-deployment.yml   # Main orchestrator
+│   ├── build-docker.yml            # Build & push image to ECR
+│   ├── deploy-ecs.yml              # Deploy to Blue or Green cluster
+│   ├── switch-traffic.yml          # Switch ALB traffic
+│   ├── clear-resources.yml         # Scale down old environment
+│   └── test-on-develop.yml         # Basic tests on develop branch
+├── terraform/
+│   ├── modules/
+│   │   ├── networking/             # VPC, Subnets, Route Tables
+│   │   ├── security/               # Security Groups
+│   │   ├── load_balance/           # ALB + Target Groups
+│   │   └── ecs_cluster/            # ECS Clusters & Services
+│   └── singapore-dev/              # Environment configuration
+├── Dockerfile
+├── index.js
+├── package.json
+└── README.md
 ```
-Deploy → Smoke Tests → ⏸️ WAIT FOR APPROVAL → Switch Traffic → Validation
+## How It Works
+
+1. Developer creates a new version tag
+2. GitHub Actions builds the Docker image and pushes it to ECR
+3. New version is deployed to the **idle** environment (Blue or Green)
+4. Manual approval is required via GitHub Environment
+5. ALB traffic is switched (Port 80 ↔ Port 81)
+6. Old environment is scaled down to zero
+
+---
+
+## Getting Started
+
+### Prerequisites
+
+- AWS Account
+- Terraform >= 1.5
+- AWS CLI configured
+- Docker
+- GitHub Secrets:
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+
+### 1. Deploy Infrastructure
+
+```bash
+cd terraform/singapore-dev
+terraform init
+terraform plan
+terraform apply
 ```
+**Note:** Do not commit `.tfstate` files. Consider using remote state (S3 + DynamoDB) for production.
 
-### Cleanup Approval Flow:
-```
-Traffic Switch → Post-Switch Validation → ⏸️ WAIT FOR APPROVAL → Cleanup
-```
+### 2. Configure GitHub
 
-## Notifications
+**Secrets:**
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
 
-Approvers will be notified via:
-- GitHub notifications
-- Email (if enabled)
-- Slack/Teams (if configured)
+**Variables (recommended):**
+- `AWS_REGION`
+- `AWS_ACCOUNT_ID`
+- `ECR_REPOSITORY`
+- `ALB_ARN`
+- `BLUE_CLUSTER`
+- `GREEN_CLUSTER`
+- `TASK_FAMILY`
+- `SERVICE_NAME`
 
-## Best Practices
+### 3. Create GitHub Environments
 
-### 1. Multiple Approval Levels
-```yaml
-environment: 
-  name: production-approval
-  url: https://your-app.com  # Link to deployed app for testing
-```
+Create the following environment and enable **Required reviewers**:
+- `production-approval`
 
-### 2. Conditional Approvals
-```yaml
-# Only require approval for production deployments
-environment: ${{ github.ref == 'refs/heads/main' && 'production-approval' || '' }}
-```
+### 4. Run Deployment
 
-### 3. Timeout Settings
-```yaml
-timeout-minutes: 60  # Auto-fail if no approval within 1 hour
-```
+1. Create a version tag (e.g. `v1.0.1`)
+2. Go to **Actions → Complete Blue-Green Deployment**
+3. Fill in the inputs:
+   - `version`: tag name
+   - `target_cluster`: `blue` or `green` (idle environment)
+   - `switch_traffic`: `true` / `false`
+   - `cleanup_old_cluster`: `true` / `false`
 
-### 4. Custom Approval Messages
-Use step summaries to provide context:
-```yaml
-- name: Approval Context
-  run: |
-    echo "## 🚀 Ready for Production" >> $GITHUB_STEP_SUMMARY
-    echo "Version: ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
-    echo "Tests: ✅ All passed" >> $GITHUB_STEP_SUMMARY
-```
+---
 
-## Troubleshooting
+## Skills Demonstrated
 
-### Common Issues:
+- Blue-Green deployment strategy on AWS ECS
+- Infrastructure as Code with Terraform modules
+- CI/CD pipeline design with GitHub Actions
+- Manual approval gates using GitHub Environments
+- ALB traffic switching between Target Groups
+- Network design with Public/Private subnets and Security Groups
+- Least privilege principle in security configuration
 
-1. **No approval notification received**
-   - Check if reviewer has repository access
-   - Verify notification settings
+---
 
-2. **Environment not found error**
-   - Ensure environment name matches exactly in workflow
-   - Case-sensitive matching
+## Important Notes
 
-3. **Approval bypassed**
-   - Check branch protection rules
-   - Verify environment is properly configured
+- Always deploy to the idle environment first
+- Never commit Terraform state files or secrets
+- Use GitHub Environments to protect production traffic switching
+- Remote state backend is recommended for real projects
 
-### Emergency Bypass
+---
 
-Repository admins can bypass approval requirements if needed:
-1. Go to the running workflow
-2. Click **Review deployments** 
-3. Select **Override protection rules** (admin only)
+## License
 
-## Example Approval Email
-
-When approval is required, reviewers receive:
-```
-🚀 Deployment approval required
-
-Repository: your-org/your-repo
-Environment: traffic-switch-approval  
-Branch: main
-Commit: abc1234 - "Deploy version v1.2.3"
-
-Review deployment: [View workflow]
-```
-
-This setup provides a robust approval process for your blue-green deployments while maintaining flexibility and security.
+This project is licensed under the Apache-2.0 License.
