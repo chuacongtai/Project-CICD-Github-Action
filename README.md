@@ -1,21 +1,20 @@
 # Blue-Green Deployment on AWS ECS with GitHub Actions & Terraform
 
-A hands-on DevOps project that implements **Blue-Green Deployment** on AWS ECS Fargate.  
-Infrastructure is fully managed by **Terraform**, and the entire CI/CD pipeline is automated using **GitHub Actions** with manual approval gates.
+This is my project about Blue-Green Deployment on AWS ECS Fargate.  
+I use Terraform to create the infrastructure and GitHub Actions for CI/CD. There is also a manual approval step before switching traffic.
 
-This project is built as a portfolio piece to demonstrate practical knowledge of modern cloud-native deployment practices.
+I did this project to practice Blue-Green deployment and understand how it works on AWS.
 
 ---
+## Overview
 
-## Project Overview
+The app is just a simple Node.js service. I deploy it with Blue-Green style:
 
-The system deploys a simple Node.js application using the Blue-Green strategy:
-
-- Two identical environments: **Blue** and **Green**
-- Traffic is switched between environments via Application Load Balancer (ALB)
-- New versions are always deployed to the idle environment first
-- Manual approval is required before switching production traffic
-- Old environment is cleaned up after a successful switch
+- There are 2 environments: Blue and Green
+- Traffic goes through ALB
+- New version always deploy to the idle one first
+- Need to approve manually before switch production traffic
+- After switch, old environment will be scaled down to 0
 
 ---
 
@@ -37,12 +36,12 @@ The system deploys a simple Node.js application using the Blue-Green strategy:
 
 ## Key Features
 
-- **Blue-Green Deployment** with zero-downtime traffic switching
-- **Infrastructure as Code** using Terraform (modular structure)
-- **CI/CD Pipeline** with GitHub Actions (Build → Push to ECR → Deploy → Switch Traffic → Cleanup)
-- **Manual Approval** using GitHub Environments
-- Alternating deployment between Blue and Green environments
-- Least-privilege Security Groups and private subnets for ECS tasks
+- Blue-Green deployment, can switch traffic with no downtime
+- Infra is written in Terraform (I split it into modules)
+- GitHub Actions pipeline: build → push image to ECR → deploy → switch traffic → cleanup
+- Manual approval with GitHub Environments
+- Can deploy to Blue or Green depending on which one is idle
+- ECS tasks run in private subnet, security group is limited
 
 ---
 
@@ -51,13 +50,13 @@ The system deploys a simple Node.js application using the Blue-Green strategy:
 | Category                  | Technology                        |
 |---------------------------|-----------------------------------|
 | Cloud Provider            | AWS                               |
-| Compute                   | Amazon ECS (Fargate)              |
-| Container Registry        | Amazon ECR                        |
-| Load Balancer             | Application Load Balancer (ALB)   |
+| Compute                   | ECS (Fargate)              |
+| Container Registry        | ECR                        |
+| Load Balancer             | ALB   |
 | Infrastructure as Code    | Terraform                         |
 | CI/CD                     | GitHub Actions                    |
 | Application               | Node.js + Express                 |
-| Region                    | ap-southeast-1 (Singapore)        |
+| Region                    | ap-southeast-1        |
 
 ---
 
@@ -66,50 +65,50 @@ The system deploys a simple Node.js application using the Blue-Green strategy:
 ```text
 .
 ├── .github/workflows/
-│   ├── blue-green-deployment.yml   # Main orchestrator
-│   ├── build-docker.yml            # Build & push image to ECR
-│   ├── deploy-ecs.yml              # Deploy to Blue or Green cluster
-│   ├── switch-traffic.yml          # Switch ALB traffic
-│   ├── clear-resources.yml         # Scale down old environment
-│   └── test-on-develop.yml         # Basic tests on develop branch
-├── architecture/                   # Architecture diagrams
-├── legacy/                         # Old files (Jenkins, appspec...)
+│   ├── blue-green-deployment.yml
+│   ├── build-docker.yml
+│   ├── deploy-ecs.yml
+│   ├── switch-traffic.yml
+│   ├── clear-resources.yml
+│   └── test-on-develop.yml
+├── architecture/                  
+├── legacy/                         
 ├── terraform/
 │   ├── modules/
-│   │   ├── networking/             # VPC, Subnets, Route Tables
-│   │   ├── security/               # Security Groups
-│   │   ├── load_balance/           # ALB + Target Groups
-│   │   └── ecs_cluster/            # ECS Clusters & Services
-│   └── singapore-dev/              # Environment configuration
+│   │   ├── networking/
+│   │   ├── security/
+│   │   ├── load_balance/
+│   │   └── ecs_cluster/
+│   └── singapore-dev/
 ├── Dockerfile
 ├── index.js
 ├── package.json
 └── README.md
 ```
+
 ## How It Works
 
-1. Developer creates a new version tag
-2. GitHub Actions builds the Docker image and pushes it to ECR
-3. New version is deployed to the **idle** environment (Blue or Green)
-4. Manual approval is required via GitHub Environment
-5. ALB traffic is switched (Port 80 ↔ Port 81)
-6. Old environment is scaled down to zero
-
+1. Create a new tag for the version
+2. GitHub Actions will build the image and push to ECR
+3. Deploy new version to the idle environment (blue or green)
+4. Wait for approval
+5. Switch traffic on ALB (port 80 and 81)
+6. Scale old environment to 0
 ---
 
-## Getting Started
+## How to run
 
 ### Prerequisites
 
 - AWS Account
 - Terraform >= 1.5
-- AWS CLI configured
+- AWS CLI
 - Docker
 - GitHub Secrets:
   - `AWS_ACCESS_KEY_ID`
   - `AWS_SECRET_ACCESS_KEY`
 
-### 1. Deploy Infrastructure
+### 1. Create infrastructure
 
 ```bash
 cd terraform/singapore-dev
@@ -117,15 +116,15 @@ terraform init
 terraform plan
 terraform apply
 ```
-**Note:** Do not commit `.tfstate` files. Consider using remote state (S3 + DynamoDB) for production.
+Note: don’t commit tfstate file. For real project better use remote state (S3 + DynamoDB).
 
-### 2. Configure GitHub
+### 2. Setup GitHub
 
-**Secrets:**
+Secrets:
 - `AWS_ACCESS_KEY_ID`
 - `AWS_SECRET_ACCESS_KEY`
 
-**Variables (recommended):**
+Variables
 - `AWS_REGION`
 - `AWS_ACCOUNT_ID`
 - `ECR_REPOSITORY`
@@ -137,42 +136,41 @@ terraform apply
 
 ### 3. Create GitHub Environments
 
-Create the following environment and enable **Required reviewers**:
-- `production-approval`
+Create environment name `production-approval` and enable Required reviewers.
 
-### 4. Run Deployment
+### 4. Deploy
 
-1. Create a version tag (e.g. `v1.0.1`)
-2. Go to **Actions → Complete Blue-Green Deployment**
-3. Fill in the inputs:
-   - `version`: tag name
-   - `target_cluster`: `blue` or `green` (idle environment)
-   - `switch_traffic`: `true` / `false`
-   - `cleanup_old_cluster`: `true` / `false`
-
----
-
-## Skills Demonstrated
-
-- Blue-Green deployment strategy on AWS ECS
-- Infrastructure as Code with Terraform modules
-- CI/CD pipeline design with GitHub Actions
-- Manual approval gates using GitHub Environments
-- ALB traffic switching between Target Groups
-- Network design with Public/Private subnets and Security Groups
-- Least privilege principle in security configuration
+1. Create a tag (example: v1.0.1)
+2. Go to Actions → Complete Blue-Green Deployment
+3. Fill the inputs:
+   - version: tag name
+   - target_cluster: blue or green (the idle one)
+   - switch_traffic: true/false
+   - cleanup_old_cluster: true/false
 
 ---
 
-## Important Notes
+## What I learned 
 
-- Always deploy to the idle environment first
-- Never commit Terraform state files or secrets
-- Use GitHub Environments to protect production traffic switching
-- Remote state backend is recommended for real projects
+- How Blue-Green works on ECS
+- Write Terraform with modules
+- Make CI/CD pipeline with GitHub Actions
+- Use GitHub Environments for approval
+- Switch traffic between 2 target groups
+- Basic setup for public/private subnet and security group
+- Try to follow least privilege
+
+---
+
+## Notes
+
+- Always deploy to idle environment first
+- Don’t commit state file or secrets
+- Should require approval before switch production traffic
+- If work with team, better use remote state
 
 ---
 
 ## License
 
-This project is licensed under the Apache-2.0 License.
+Apache-2.0
